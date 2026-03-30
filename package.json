@@ -1,0 +1,11 @@
+{
+  "name": "duobump",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static DuoBump mobile PvP MVP for Vercel",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js"
+  }
+}

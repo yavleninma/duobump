@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>DuoBump</title>
+    <style>
+      :root{color-scheme:only light;--ink:#1f1d1a;--muted:#69625b;--card:rgba(255,252,246,.88);--line:rgba(31,29,26,.12);--green:#2f7f5f;--shadow:0 22px 60px rgba(31,29,26,.16);--red:#ff6b6b;--blue:#4fd1ff}
+      *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at top,rgba(255,255,255,.85),transparent 36%),linear-gradient(180deg,#efe8db 0%,#f7f4ed 100%);color:var(--ink);font-family:"Trebuchet MS","Avenir Next","Segoe UI",sans-serif;overscroll-behavior:none}
+      body{padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+      button,input,canvas{font:inherit}button{border:0;cursor:pointer}.app-shell{width:min(100%,960px);margin:0 auto}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.topbar h1{margin:0;font-size:clamp(2rem,7vw,3.6rem);line-height:.95}
+      .eyebrow{margin:0 0 6px;font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}.connection-pill{align-self:center;padding:9px 12px;border-radius:999px;background:rgba(31,29,26,.08);color:var(--muted);font-size:.9rem;font-weight:700;min-width:110px;text-align:center}.connection-pill.connected{background:rgba(47,127,95,.14);color:var(--green)}
+      .layout{display:grid;gap:14px}.panel,.arena-panel,.controls-panel{border:1px solid var(--line);border-radius:28px;background:var(--card);box-shadow:var(--shadow);backdrop-filter:blur(16px)}.panel{padding:18px}
+      .lede,.hint,.room-status,.controls-copy span,#overlayBody{margin:0;color:var(--muted);line-height:1.45}.stack{display:grid;gap:12px;margin:18px 0}.join-card{display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.54)}.join-card label{font-size:.9rem;font-weight:700;color:var(--muted)}.join-row{display:grid;grid-template-columns:1fr auto;gap:10px}
+      input{width:100%;min-height:52px;border:1px solid rgba(31,29,26,.14);border-radius:16px;padding:0 14px;background:rgba(255,255,255,.92);text-transform:uppercase;letter-spacing:.16em;font-size:1.05rem;font-weight:800;color:var(--ink)}input:focus{outline:2px solid rgba(79,209,255,.44);outline-offset:1px}
+      .primary-button,.secondary-button,.ghost-button,.inline-button{min-height:52px;border-radius:18px;padding:0 18px;font-weight:800;transition:transform 120ms ease,opacity 120ms ease}.primary-button:active,.secondary-button:active,.ghost-button:active,.inline-button:active{transform:scale(.98)}.primary-button{background:var(--ink);color:#fff8ef}.secondary-button{background:rgba(79,209,255,.2);color:var(--ink)}.ghost-button,.inline-button{background:rgba(31,29,26,.08);color:var(--ink)}.inline-button{min-height:38px;padding:0 12px;border-radius:999px}
+      .room-topline{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.room-code-wrap{display:flex;align-items:center;gap:10px;font-size:1.45rem}.scoreboard{display:grid;gap:10px;margin:14px 0}.score-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.65);border:1px solid rgba(31,29,26,.06)}.score-row.you{outline:2px solid rgba(31,29,26,.08)}.score-player{display:flex;align-items:center;gap:10px}.score-dot{width:14px;height:14px;border-radius:999px}.score-name{font-size:1rem;font-weight:800}.score-role,.score-target{color:var(--muted);font-size:.88rem}.score-points{font-size:1.35rem;font-weight:900}
+      .arena-panel{padding:12px}.canvas-frame{position:relative;min-height:min(62vh,580px);border-radius:24px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.15))}#gameCanvas{display:block;width:100%;height:min(62vh,580px)}
+      .overlay-card{position:absolute;inset:0;display:grid;align-content:center;justify-items:center;gap:8px;padding:28px;text-align:center;background:rgba(247,244,237,.5);backdrop-filter:blur(12px)}.overlay-card.hidden{opacity:0;pointer-events:none}.overlay-kicker{margin:0;color:var(--muted);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}.overlay-card h2{margin:0;max-width:14ch;font-size:clamp(1.8rem,8vw,3.2rem);line-height:.96}
+      .controls-panel{margin-top:12px;padding:14px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}.controls-copy{display:grid;gap:4px}.stick-pad{position:relative;width:132px;height:132px;border-radius:999px;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.85),rgba(255,255,255,.35)),rgba(31,29,26,.08);border:1px solid rgba(31,29,26,.08);touch-action:none;user-select:none}.stick-ring{position:absolute;inset:16px;border-radius:999px;border:1px dashed rgba(31,29,26,.16)}.stick-knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin-left:-29px;margin-top:-29px;border-radius:999px;background:linear-gradient(180deg,#fff,#e9e3d9);box-shadow:0 16px 22px rgba(31,29,26,.18)}
+      @media (max-width:720px){body{padding-left:12px;padding-right:12px}.controls-panel{grid-template-columns:1fr;justify-items:center;text-align:center}}
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Two phones. One tiny arena.</p>
+          <h1>DuoBump</h1>
+        </div>
+        <div class="connection-pill" id="connectionPill">Offline</div>
+      </header>
+
+      <main class="layout">
+        <section class="panel" id="homePanel">
+          <p class="lede">Create a room on one phone, join it from the second, then bump your rival out of the ring.</p>
+          <div class="stack">
+            <button id="createRoomButton" class="primary-button">Create room</button>
+            <div class="join-card">
+              <label for="roomCodeInput">Room code</label>
+              <div class="join-row">
+                <input id="roomCodeInput" type="text" autocomplete="off" maxlength="4" placeholder="AB12" />
+                <button id="joinRoomButton" class="secondary-button">Join</button>
+              </div>
+            </div>
+          </div>
+          <p class="hint">Realtime goes peer-to-peer so the game can live on a simple Vercel deploy.</p>
+        </section>
+
+        <section class="panel" id="roomPanel" hidden>
+          <div class="room-topline">
+            <div>
+              <p class="eyebrow">Room</p>
+              <div class="room-code-wrap">
+                <strong id="roomCodeLabel">----</strong>
+                <button id="copyCodeButton" class="inline-button" type="button">Copy</button>
+              </div>
+            </div>
+            <button id="leaveRoomButton" class="ghost-button" type="button">Leave</button>
+          </div>
+          <div class="room-status" id="roomStatus">Waiting for room.</div>
+          <div class="scoreboard" id="scoreboard"></div>
+          <button id="startMatchButton" class="primary-button" type="button" hidden>Start match</button>
+        </section>
+
+        <section class="arena-panel" id="arenaPanel" hidden>
+          <div class="canvas-frame">
+            <canvas id="gameCanvas" width="720" height="960"></canvas>
+            <div class="overlay-card" id="overlayCard">
+              <p class="overlay-kicker" id="overlayKicker">Lobby</p>
+              <h2 id="overlayTitle">Waiting for another player</h2>
+              <p id="overlayBody">Open the same URL on the second phone and join this room.</p>
+              <button id="rematchButton" class="primary-button" type="button" hidden>Rematch</button>
+            </div>
+          </div>
+          <div class="controls-panel">
+            <div class="stick-pad" id="stickPad" role="application" aria-label="Movement joystick">
+              <div class="stick-ring"></div>
+              <div class="stick-knob" id="stickKnob"></div>
+            </div>
+            <div class="controls-copy">
+              <strong>Touch and drag to move.</strong>
+              <span>Knock the other blob off the arena before they do it to you.</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+      const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const ARENA_RADIUS = 220, PLAYER_RADIUS = 28, PLAYER_ACCEL = 930, PLAYER_MAX_SPEED = 360;
+      const PLAYER_DAMPING = 0.84, COLLISION_RESTITUTION = 1.06, ROUND_START_DELAY = 1.2, ROUND_END_DELAY = 1.5, WINS_TO_MATCH = 3, SPAWN_DISTANCE = 118, STICK_RADIUS = 38;
+      const $ = (id) => document.getElementById(id);
+      const ui = { home:$("homePanel"), room:$("roomPanel"), arena:$("arenaPanel"), create:$("createRoomButton"), join:$("joinRoomButton"), code:$("roomCodeInput"), codeLabel:$("roomCodeLabel"), copy:$("copyCodeButton"), leave:$("leaveRoomButton"), status:$("roomStatus"), score:$("scoreboard"), start:$("startMatchButton"), pill:$("connectionPill"), canvas:$("gameCanvas"), overlay:$("overlayCard"), kicker:$("overlayKicker"), title:$("overlayTitle"), body:$("overlayBody"), rematch:$("rematchButton"), pad:$("stickPad"), knob:$("stickKnob") };
+      const ctx = ui.canvas.getContext("2d");
+      const peerOptions = { debug:1, config:{ iceServers:[{ urls:"stun:stun.l.google.com:19302" }, { urls:"stun:stun1.l.google.com:19302" }] } };
+      const state = { role:null, peer:null, conn:null, roomCode:"", hostGame:null, room:null, remoteInput:{x:0,y:0}, localInput:{x:0,y:0}, prevInput:"", visuals:new Map(), keyboard:{up:false,down:false,left:false,right:false}, joy:{active:false,pointerId:null,x:0,y:0}, lastInputAt:0, broadcast:0 };
+
+      ui.create.onclick = createRoom;
+      ui.join.onclick = joinRoom;
+      ui.start.onclick = () => { if (state.role === "host" && state.hostGame && state.hostGame.players.length === 2) { startMatch(); syncHost(); } };
+      ui.rematch.onclick = () => { if (!state.room) return; state.role === "host" ? registerRematch("host") : send({ type:"rematch" }); };
+      ui.leave.onclick = resetSession;
+      ui.copy.onclick = async () => { if (!state.roomCode) return; try { await navigator.clipboard.writeText(state.roomCode); setStatus("Room code copied."); } catch { setStatus("Copy failed."); } };
+      ui.code.oninput = () => { ui.code.value = sanitizeCode(ui.code.value); };
+      ui.code.onkeydown = (e) => { if (e.key === "Enter") joinRoom(); };
+      window.addEventListener("resize", resizeCanvas); resizeCanvas();
+      window.addEventListener("keydown", (e) => { if (e.repeat) return; toggleKey(e, true); });
+      window.addEventListener("keyup", (e) => toggleKey(e, false));
+      ui.pad.addEventListener("pointerdown", onPadDown); ui.pad.addEventListener("pointermove", onPadMove); ui.pad.addEventListener("pointerup", onPadUp); ui.pad.addEventListener("pointercancel", onPadUp);
+      setInterval(hostTick, 1000 / 60); setInterval(() => syncInput(true), 50); requestAnimationFrame(loop);
+
+      function toggleKey(e, down) {
+        if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") state.keyboard.up = down;
+        if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") state.keyboard.down = down;
+        if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") state.keyboard.left = down;
+        if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") state.keyboard.right = down;
+        syncInput();
+      }
+
+      function onPadDown(e) { ui.pad.setPointerCapture(e.pointerId); state.joy.active = true; state.joy.pointerId = e.pointerId; updateJoy(e); }
+      function onPadMove(e) { if (state.joy.active && state.joy.pointerId === e.pointerId) updateJoy(e); }
+      function onPadUp(e) { if (e.type !== "pointercancel" && state.joy.pointerId !== e.pointerId) return; state.joy = { active:false, pointerId:null, x:0, y:0 }; ui.knob.style.transform = "translate(0px, 0px)"; syncInput(); }
+      function updateJoy(e) {
+        const rect = ui.pad.getBoundingClientRect(), cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        const rx = e.clientX - cx, ry = e.clientY - cy, dist = Math.hypot(rx, ry), len = Math.min(dist, STICK_RADIUS), ang = Math.atan2(ry, rx);
+        state.joy.x = dist ? Math.cos(ang) * (len / STICK_RADIUS) : 0; state.joy.y = dist ? Math.sin(ang) * (len / STICK_RADIUS) : 0;
+        ui.knob.style.transform = "translate(" + (state.joy.x * STICK_RADIUS) + "px, " + (state.joy.y * STICK_RADIUS) + "px)";
+        syncInput();
+      }
+
+      function createRoom() { resetSession(); setPill("Creating", false); tryCreateHost(0); }
+      function tryCreateHost(attempt) {
+        if (attempt > 6) return fail("Could not create a room.");
+        const code = generateCode();
+        const peer = new Peer("duobump-" + code, peerOptions);
+        peer.on("open", () => { state.peer = peer; state.role = "host"; state.roomCode = code; state.hostGame = makeGame(code); attachHostPeer(peer); setPill("Ready", true); syncHost(); });
+        peer.on("error", (error) => { peer.destroy(); String(error.type || "").includes("unavailable") ? tryCreateHost(attempt + 1) : fail("Room creation failed."); });
+      }
+      function joinRoom() {
+        const code = sanitizeCode(ui.code.value); if (code.length !== 4) return setStatus("Enter a 4-character room code.");
+        resetSession(); setPill("Joining", false); state.role = "guest"; state.roomCode = code; state.peer = new Peer(undefined, peerOptions);
+        state.peer.on("open", () => attachGuestConn(state.peer.connect("duobump-" + code, { reliable:true, serialization:"json" })));
+        state.peer.on("error", () => fail("Room not found or connection failed."));
+      }
+      function attachHostPeer(peer) {
+        peer.on("connection", (conn) => {
+          if (state.conn && state.conn.open) { conn.on("open", () => { conn.send({ type:"error", message:"Room is full." }); conn.close(); }); return; }
+          state.conn = conn; state.remoteInput = { x:0, y:0 };
+          conn.on("open", () => { addGuest(); state.hostGame.message = "Both players are in. Host can start the match."; syncHost(); });
+          conn.on("data", hostData);
+          conn.on("close", () => { state.conn = null; state.remoteInput = { x:0, y:0 }; removeGuest(); lobbyReset("Opponent left. Waiting for a new challenger."); syncHost(); });
+          conn.on("error", () => setStatus("Peer connection hiccup."));
+        });
+      }
+      function attachGuestConn(conn) {
+        state.conn = conn;
+        conn.on("open", () => { setPill("Ready", true); setStatus("Connected. Waiting for host."); });
+        conn.on("data", (msg) => { if (msg.type === "error") return fail(msg.message || "Join failed."); if (msg.type === "state") { state.room = msg.room; renderUi(); } });
+        conn.on("close", () => fail("Connection closed. Host probably left."));
+        conn.on("error", () => fail("Could not connect to that room."));
+      }
+      function hostData(msg) {
+        if (!msg || !state.hostGame) return;
+        if (msg.type === "input") state.remoteInput = { x: clamp(msg.x, -1, 1), y: clamp(msg.y, -1, 1) };
+        if (msg.type === "rematch") registerRematch("guest");
+      }
+
+      function makeGame(code) { return { code, status:"lobby", round:0, timer:0, message:"Share the room code with a second phone.", winnerId:null, roundWinnerId:null, rematchVotes:[], players:[makePlayer("host", "P1", getVar("--red"), -SPAWN_DISTANCE)] }; }
+      function makePlayer(id, label, color, x) { return { id, label, color, score:0, x, y:0, vx:0, vy:0 }; }
+      function addGuest() { if (!state.hostGame.players.find((p) => p.id === "guest")) state.hostGame.players.push(makePlayer("guest", "P2", getVar("--blue"), SPAWN_DISTANCE)); }
+      function removeGuest() { state.hostGame.players = state.hostGame.players.filter((p) => p.id !== "guest"); }
+      function lobbyReset(message) { const g = state.hostGame; g.status = "lobby"; g.round = 0; g.timer = 0; g.message = message; g.winnerId = null; g.roundWinnerId = null; g.rematchVotes = []; g.players.forEach((p) => { p.score = 0; resetPlayer(p); }); }
+      function startMatch() { const g = state.hostGame; g.round = 0; g.winnerId = null; g.roundWinnerId = null; g.rematchVotes = []; g.players.forEach((p) => { p.score = 0; resetPlayer(p); }); nextRound(); }
+      function nextRound() { const g = state.hostGame; g.round += 1; g.status = "countdown"; g.timer = ROUND_START_DELAY; g.roundWinnerId = null; g.message = "Round " + g.round; g.players.forEach(resetPlayer); }
+      function resetPlayer(p) { p.x = p.id === "host" ? -SPAWN_DISTANCE : SPAWN_DISTANCE; p.y = 0; p.vx = 0; p.vy = 0; }
+
+      function hostTick() {
+        if (state.role !== "host" || !state.hostGame) return;
+        const g = state.hostGame;
+        if (g.players.length === 2) {
+          if (g.status === "countdown") { g.timer = Math.max(0, g.timer - 1 / 60); if (g.timer === 0) { g.status = "playing"; g.message = "Bump!"; } }
+          else if (g.status === "playing") playTick(g, 1 / 60);
+          else if (g.status === "round-end") { g.timer = Math.max(0, g.timer - 1 / 60); if (g.timer === 0) nextRound(); }
+        }
+        state.broadcast += 1 / 60;
+        if (state.broadcast >= 1 / 20) { state.broadcast = 0; syncHost(); } else { state.room = serialize(state.hostGame); renderUi(); }
+      }
+      function playTick(g, dt) {
+        const host = g.players.find((p) => p.id === "host"), guest = g.players.find((p) => p.id === "guest");
+        movePlayer(host, state.localInput, dt); movePlayer(guest, state.remoteInput, dt); collide(host, guest);
+        const outside = g.players.filter((p) => Math.hypot(p.x, p.y) > ARENA_RADIUS + PLAYER_RADIUS);
+        if (outside.length === 1) endRound(outside[0].id === "host" ? "guest" : "host");
+        if (outside.length > 1) endRound(null);
+      }
+      function movePlayer(p, input, dt) {
+        const v = normalize(input.x, input.y);
+        p.vx += v.x * PLAYER_ACCEL * dt; p.vy += v.y * PLAYER_ACCEL * dt;
+        const damping = Math.pow(PLAYER_DAMPING, dt * 60); p.vx *= damping; p.vy *= damping;
+        const speed = Math.hypot(p.vx, p.vy); if (speed > PLAYER_MAX_SPEED) { const s = PLAYER_MAX_SPEED / speed; p.vx *= s; p.vy *= s; }
+        p.x += p.vx * dt; p.y += p.vy * dt;
+      }
+      function collide(a, b) {
+        const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || .0001, minDist = PLAYER_RADIUS * 2; if (dist >= minDist) return;
+        const nx = dx / dist, ny = dy / dist, overlap = minDist - dist; a.x -= nx * overlap * .5; a.y -= ny * overlap * .5; b.x += nx * overlap * .5; b.y += ny * overlap * .5;
+        const rvx = b.vx - a.vx, rvy = b.vy - a.vy, nv = rvx * nx + rvy * ny; if (nv > 0) return; const impulse = (-(1 + COLLISION_RESTITUTION) * nv) / 2;
+        a.vx -= impulse * nx; a.vy -= impulse * ny; b.vx += impulse * nx; b.vy += impulse * ny;
+      }
+      function endRound(winnerId) {
+        const g = state.hostGame; g.roundWinnerId = winnerId; g.players.forEach((p) => { p.vx = 0; p.vy = 0; });
+        if (!winnerId) { g.status = "round-end"; g.timer = ROUND_END_DELAY; g.message = "Double fall. Round reset."; return syncHost(); }
+        const winner = g.players.find((p) => p.id === winnerId); winner.score += 1;
+        if (winner.score >= WINS_TO_MATCH) { g.status = "finished"; g.winnerId = winnerId; g.message = winnerId === "host" ? "You win the match." : "Rival wins the match."; }
+        else { g.status = "round-end"; g.timer = ROUND_END_DELAY; g.message = (winnerId === "host" ? "You" : "Rival") + " take the round."; }
+        syncHost();
+      }
+      function registerRematch(side) {
+        const g = state.hostGame; if (!g || g.status !== "finished") return;
+        if (!g.rematchVotes.includes(side)) g.rematchVotes.push(side);
+        if (g.rematchVotes.length === 2) startMatch(); else g.message = "Waiting for the other player to rematch.";
+        syncHost();
+      }
+      function serialize(g) { return { code:g.code, status:g.status, round:g.round, message:g.message, winsToMatch:WINS_TO_MATCH, countdown:g.status === "countdown" ? Math.max(0, Math.ceil(g.timer)) : 0, winnerId:g.winnerId, roundWinnerId:g.roundWinnerId, rematchVotes:g.rematchVotes.slice(), players:g.players.map((p) => ({ id:p.id, label:p.label, color:p.color, score:p.score, x:round2(p.x), y:round2(p.y), vx:round2(p.vx), vy:round2(p.vy) })), arena:{ radius:ARENA_RADIUS, playerRadius:PLAYER_RADIUS } }; }
+      function syncHost() { state.room = serialize(state.hostGame); renderUi(); send({ type:"state", room:state.room }); }
+      function send(msg) { if (state.conn && state.conn.open) state.conn.send(msg); }
+
+      function syncInput(force = false) {
+        state.localInput = desiredInput();
+        const key = state.localInput.x.toFixed(2) + ":" + state.localInput.y.toFixed(2), now = Date.now();
+        if (!force && key === state.prevInput) return;
+        if (force && key === state.prevInput && now - state.lastInputAt < 250) return;
+        state.prevInput = key; state.lastInputAt = now;
+        if (state.role === "guest") send({ type:"input", x:state.localInput.x, y:state.localInput.y });
+      }
+      function desiredInput() {
+        let x = 0, y = 0;
+        if (state.joy.active) { x = state.joy.x; y = state.joy.y; }
+        else { x = Number(state.keyboard.right) - Number(state.keyboard.left); y = Number(state.keyboard.down) - Number(state.keyboard.up); }
+        return normalize(x, y);
+      }
+
+      function renderUi() {
+        const inRoom = Boolean(state.room || state.roomCode); ui.home.hidden = inRoom; ui.room.hidden = !inRoom; ui.arena.hidden = !inRoom; ui.codeLabel.textContent = state.roomCode || "----"; if (!state.room) return;
+        ui.status.textContent = state.room.message;
+        ui.start.hidden = !(state.role === "host" && state.room.status === "lobby" && state.room.players.length === 2);
+        ui.score.innerHTML = state.room.players.map((p) => '<div class="' + (p.id === state.role ? "score-row you" : "score-row") + '"><div class="score-player"><span class="score-dot" style="background:' + p.color + '"></span><div><div class="score-name">' + (p.id === state.role ? "You" : "Rival") + '</div><div class="score-role">' + p.label + '</div></div></div><div class="score-points">' + p.score + '</div><div class="score-target">/ ' + state.room.winsToMatch + "</div></div>").join("");
+        renderOverlay();
+      }
+      function renderOverlay() {
+        const room = state.room; let kicker = "Lobby", title = "Waiting for another player", body = "Open the same URL on the second phone and join this room.", show = true, rematch = false;
+        const winner = room.players.find((p) => p.id === room.winnerId), roundWinner = room.players.find((p) => p.id === room.roundWinnerId);
+        if (room.players.length < 2) body = "Share the room code with a second phone.";
+        else if (room.status === "lobby") { kicker = "Ready"; title = state.role === "host" ? "Start when ready" : "Host is about to start"; body = state.role === "host" ? "Tap Start match when both players are holding their phones." : "Host can start the match now."; }
+        else if (room.status === "countdown") { kicker = "Round " + room.round; title = String(room.countdown || 1); body = "Hold the stick and prepare to shove."; }
+        else if (room.status === "playing") show = false;
+        else if (room.status === "round-end") { kicker = "Round " + room.round; title = roundWinner ? (roundWinner.id === state.role ? "You scored" : "Rival scored") : "Draw"; body = roundWinner ? "Next round starts automatically." : "Nobody gets the point. Resetting."; }
+        else if (room.status === "finished") { kicker = "Match point"; title = winner && winner.id === state.role ? "You win" : "You got bumped"; body = winner ? (winner.id === state.role ? "First to " + room.winsToMatch + " wins." : "Rival reached " + room.winsToMatch + " wins.") : "Match finished."; rematch = true; if (room.rematchVotes.includes(state.role) && room.rematchVotes.length < 2) body = "Rematch requested. Waiting for the other player."; }
+        ui.kicker.textContent = kicker; ui.title.textContent = title; ui.body.textContent = body; ui.rematch.hidden = !rematch; ui.overlay.classList.toggle("hidden", !show);
+      }
+
+      function loop() { draw(); requestAnimationFrame(loop); }
+      function draw() {
+        const w = ui.canvas.width, h = ui.canvas.height; ctx.clearRect(0, 0, w, h);
+        const grad = ctx.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, "#fffaf2"); grad.addColorStop(1, "#eee6da"); ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+        if (!state.room) { ctx.fillStyle = "rgba(31,29,26,.8)"; ctx.font = "700 42px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText("DuoBump", w / 2, h * .4); ctx.fillStyle = "rgba(31,29,26,.46)"; ctx.font = "600 20px Trebuchet MS"; ctx.fillText("Create a room on one phone and join on the other.", w / 2, h * .47); return; }
+        const room = state.room, world = room.arena.radius * 2 + 160, scale = Math.min(w / world, h / (world + 160)), cx = w / 2, cy = h * .44;
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.beginPath(); ctx.arc(0, 0, room.arena.radius + 18, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(31,29,26,.12)"; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, room.arena.radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "rgba(31,29,26,.08)"; ctx.lineWidth = 2; ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.arc(0, 0, room.arena.radius * .62, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        for (const p of room.players) drawPlayer(p, room.arena.playerRadius); ctx.restore(); drawHud(room, w, h);
+      }
+      function drawPlayer(p, radius) {
+        const v = visual(p), speed = Math.hypot(p.vx, p.vy), squash = Math.min(speed / 380, .14);
+        ctx.save(); ctx.translate(v.x, v.y); ctx.scale(1 + squash, 1 - squash * .7); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.92)"; ctx.beginPath(); ctx.arc(-8, -6, 7, 0, Math.PI * 2); ctx.arc(8, -6, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1f1d1a"; ctx.beginPath(); ctx.arc(-8, -6, 2.2, 0, Math.PI * 2); ctx.arc(8, -6, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(31,29,26,.5)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 7, 8, .1 * Math.PI, .9 * Math.PI); ctx.stroke(); ctx.restore();
+      }
+      function drawHud(room, w, h) {
+        ctx.fillStyle = "rgba(31,29,26,.75)"; ctx.font = "700 18px Trebuchet MS"; ctx.textAlign = "left"; ctx.fillText("ROOM " + room.code, 22, 34); ctx.textAlign = "right"; ctx.fillText("FIRST TO " + room.winsToMatch, w - 22, 34);
+        const me = room.players.find((p) => p.id === state.role), rival = room.players.find((p) => p.id !== state.role); if (!me || !rival) return;
+        badge(22, h - 46, me.color, "YOU " + me.score); badge(w - 150, h - 46, rival.color, "RIVAL " + rival.score);
+      }
+      function badge(x, y, color, label) { ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.beginPath(); ctx.roundRect(x, y, 128, 32, 16); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 18, y + 16, 7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "rgba(31,29,26,.8)"; ctx.font = "700 15px Trebuchet MS"; ctx.textAlign = "left"; ctx.fillText(label, x + 32, y + 21); }
+      function visual(p) { const ex = state.visuals.get(p.id); if (!ex) { const start = { x:p.x, y:p.y }; state.visuals.set(p.id, start); return start; } ex.x += (p.x - ex.x) * .35; ex.y += (p.y - ex.y) * .35; return ex; }
+      function resizeCanvas() { const rect = ui.canvas.getBoundingClientRect(), ratio = Math.max(1, window.devicePixelRatio || 1); ui.canvas.width = Math.round(rect.width * ratio); ui.canvas.height = Math.round(rect.height * ratio); }
+
+      function generateCode() { let code = ""; for (let i = 0; i < 4; i += 1) code += ROOM_CHARS[Math.floor(Math.random() * ROOM_CHARS.length)]; return code; }
+      function normalize(x, y) { const len = Math.hypot(x, y); return len ? { x:x / len, y:y / len } : { x:0, y:0 }; }
+      function sanitizeCode(v) { return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4); }
+      function clamp(v, min, max) { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : 0; }
+      function round2(v) { return Math.round(v * 100) / 100; }
+      function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+      function setStatus(text) { ui.status.textContent = text; }
+      function setPill(text, ok) { ui.pill.textContent = text; ui.pill.classList.toggle("connected", !!ok); }
+      function fail(message) { setStatus(message); setPill("Offline", false); }
+      function resetSession() { if (state.conn && state.conn.open) state.conn.close(); if (state.peer && !state.peer.destroyed) state.peer.destroy(); state.role = null; state.peer = null; state.conn = null; state.roomCode = ""; state.hostGame = null; state.room = null; state.remoteInput = { x:0, y:0 }; state.localInput = { x:0, y:0 }; state.prevInput = ""; state.visuals.clear(); setPill("Offline", false); ui.home.hidden = false; ui.room.hidden = true; ui.arena.hidden = true; }
+    </script>
+  </body>
+</html>
