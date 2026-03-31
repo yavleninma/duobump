@@ -80,7 +80,8 @@ const state = {
   broadcast:0,
   effectSeen:new Set(),
   shake:0,
-  flash:0
+  flash:0,
+  renderErrorKey:""
 };
 
 ui.create.onclick = createRoom;
@@ -843,8 +844,17 @@ function renderUi() {
 }
 
 function loop() {
-  draw();
   requestAnimationFrame(loop);
+  try {
+    draw();
+    state.renderErrorKey = "";
+  } catch (error) {
+    const nextKey = String(error && error.message ? error.message : error);
+    if (state.renderErrorKey !== nextKey) {
+      state.renderErrorKey = nextKey;
+      console.error("DuoBump render error:", error);
+    }
+  }
 }
 function draw() {
   const w = ui.canvas.width;
@@ -866,19 +876,22 @@ function draw() {
     return;
   }
   const room = state.room;
+  const arena = room.arena || {};
   state.shake = Math.max(0, state.shake - 0.45);
   state.flash = Math.max(0, state.flash - 0.014);
   const shakeX = state.shake ? (Math.random() - 0.5) * state.shake : 0;
   const shakeY = state.shake ? (Math.random() - 0.5) * state.shake : 0;
-  const world = room.arena.baseRadius * 2 + 180;
+  const baseRadius = Number(arena.baseRadius) || BASE_ARENA_RADIUS;
+  const world = baseRadius * 2 + 180;
   const scale = Math.min(w / world, h / (world + 180));
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
   const cx = w / 2;
   const cy = h * 0.44;
   ctx.save();
   ctx.translate(shakeX, shakeY);
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.scale(scale, scale);
+  ctx.scale(safeScale, safeScale);
   drawArena(room);
   ctx.restore();
   drawHud(room, w, h);
@@ -889,18 +902,22 @@ function draw() {
   ctx.restore();
 }
 function drawArena(room) {
-  const ringRadius = room.arena.radius;
-  const baseRadius = room.arena.baseRadius;
+  const arena = room.arena || {};
+  const ringRadius = Number(arena.radius) || BASE_ARENA_RADIUS;
+  const baseRadius = Number(arena.baseRadius) || BASE_ARENA_RADIUS;
+  const isSudden = !!arena.sudden;
+  const players = Array.isArray(room.players) ? room.players : [];
+  const effects = Array.isArray(room.effects) ? room.effects : [];
   ctx.fillStyle = "rgba(255,255,255,.9)";
   ctx.beginPath();
   ctx.arc(0, 0, baseRadius + 20, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = room.arena.sudden ? "rgba(255,139,82,.08)" : "rgba(255,255,255,.45)";
+  ctx.fillStyle = isSudden ? "rgba(255,139,82,.08)" : "rgba(255,255,255,.45)";
   ctx.beginPath();
   ctx.arc(0, 0, ringRadius + 14, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = room.arena.sudden ? "rgba(255,139,82,.7)" : "rgba(31,29,26,.14)";
-  ctx.lineWidth = room.arena.sudden ? 10 : 8;
+  ctx.strokeStyle = isSudden ? "rgba(255,139,82,.7)" : "rgba(31,29,26,.14)";
+  ctx.lineWidth = isSudden ? 10 : 8;
   ctx.beginPath();
   ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
   ctx.stroke();
@@ -911,10 +928,10 @@ function drawArena(room) {
   ctx.arc(0, 0, ringRadius * 0.62, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
-  drawEffects(room.effects, "under");
+  drawEffects(effects, "under");
   if (room.powerup) drawPowerup(room.powerup);
-  room.players.forEach((player) => drawPlayer(player, room.arena.playerRadius));
-  drawEffects(room.effects, "over");
+  players.forEach((player) => drawPlayer(player, arena.playerRadius || PLAYER_RADIUS));
+  drawEffects(effects, "over");
 }
 function drawPowerup(powerup) {
   const pulse = 1 + Math.sin(powerup.spin * 1.8) * 0.08;
@@ -962,7 +979,7 @@ function drawPlayer(player, radius) {
     ctx.rotate(Math.atan2(player.facingY, player.facingX));
     ctx.fillStyle = "rgba(255,139,82,.24)";
     ctx.beginPath();
-    ctx.ellipse(-18, 0, radius + 10, radius * 0.58, 0, 0, Math.PI * 2);
+    ellipsePath(-18, 0, radius + 10, radius * 0.58, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -994,7 +1011,10 @@ function drawPlayer(player, radius) {
   ctx.stroke();
   ctx.restore();
 }
-function drawEffects(effects, layer) { effects.forEach((effect) => drawEffect(effect, layer)); }
+function drawEffects(effects, layer) {
+  if (!Array.isArray(effects)) return;
+  effects.forEach((effect) => drawEffect(effect, layer));
+}
 function drawEffect(effect, layer) {
   const progress = 1 - effect.life / effect.maxLife;
   if ((effect.type === "dash" || effect.type === "round") && layer !== "under") return;
@@ -1114,7 +1134,7 @@ function drawHud(room, w, h) {
 function pill(x, y, width, height, label, dotColor, align) {
   ctx.fillStyle = "rgba(255,255,255,.88)";
   ctx.beginPath();
-  ctx.roundRect(x, y, width, height, 17);
+  roundedRectPath(x, y, width, height, 17);
   ctx.fill();
   ctx.fillStyle = dotColor;
   ctx.beginPath();
@@ -1129,7 +1149,7 @@ function pill(x, y, width, height, label, dotColor, align) {
 function badge(x, y, color, label, status, width) {
   ctx.fillStyle = "rgba(255,255,255,.9)";
   ctx.beginPath();
-  ctx.roundRect(x, y, width, 48, 18);
+  roundedRectPath(x, y, width, 48, 18);
   ctx.fill();
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -1142,6 +1162,35 @@ function badge(x, y, color, label, status, width) {
   ctx.fillStyle = "rgba(31,29,26,.5)";
   ctx.font = "600 11px Trebuchet MS";
   ctx.fillText(status, x + 14, y + 38);
+}
+function ellipsePath(x, y, radiusX, radiusY, rotation, startAngle, endAngle) {
+  if (typeof ctx.ellipse === "function") {
+    ctx.ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  if (rotation) ctx.rotate(rotation);
+  ctx.scale(radiusX, radiusY);
+  ctx.arc(0, 0, 1, startAngle, endAngle);
+  ctx.restore();
+}
+function roundedRectPath(x, y, width, height, radius) {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, width, height, safeRadius);
+    return;
+  }
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
 }
 function visual(player) {
   const existing = state.visuals.get(player.id);
