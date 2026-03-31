@@ -6,19 +6,19 @@ const PLAYER_MAX_SPEED = 470;
 const PLAYER_DAMPING = 0.9;
 const COLLISION_RESTITUTION = 1.12;
 const ROUND_START_DELAY = 1.1;
-const ROUND_END_DELAY = 1.85;
+const ROUND_END_DELAY = 1.75;
 const WINS_TO_MATCH = 5;
 const ROUND_DURATION = 24;
 const SPAWN_DISTANCE = 118;
-const STICK_RADIUS = 38;
+const STICK_RADIUS = 42;
 const DASH_BOOST = 420;
-const DASH_COOLDOWN = 2.8;
+const DASH_COOLDOWN = 2.35;
 const DASH_IMPACT_TIME = 0.28;
 const DASH_SPEED_BONUS = 300;
 const HIT_STUN = 0.16;
 const POWERUP_RADIUS = 18;
-const POWERUP_RESPAWN = 7.4;
-const POWERUP_DURATION = 5.2;
+const POWERUP_RESPAWN = 6.2;
+const POWERUP_DURATION = 4.8;
 const MIN_RING_RADIUS = 138;
 const SHRINK_RATE = 14;
 
@@ -52,6 +52,8 @@ const ui = {
   title:$("overlayTitle"),
   body:$("overlayBody"),
   rematch:$("rematchButton"),
+  moveRail:$("moveRail"),
+  burstRail:$("burstRail"),
   pad:$("stickPad"),
   knob:$("stickKnob"),
   burst:$("burstButton"),
@@ -73,7 +75,7 @@ const state = {
   prevInput:"",
   visuals:new Map(),
   keyboard:{ up:false, down:false, left:false, right:false },
-  joy:{ active:false, pointerId:null, x:0, y:0 },
+  joy:{ active:false, pointerId:null, x:0, y:0, anchorX:0, anchorY:0 },
   lastInputAt:0,
   broadcast:0,
   effectSeen:new Set(),
@@ -94,7 +96,7 @@ ui.rematch.onclick = () => {
   state.role === "host" ? registerRematch("host") : send({ type:"rematch" });
 };
 ui.leave.onclick = resetSession;
-ui.burst.onpointerdown = (e) => { e.preventDefault(); requestDash(); };
+ui.burst.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); requestDash(); };
 ui.burst.onclick = (e) => e.preventDefault();
 ui.copy.onclick = async () => {
   if (!state.roomCode) return;
@@ -107,14 +109,19 @@ ui.copy.onclick = async () => {
 };
 ui.code.oninput = () => { ui.code.value = sanitizeCode(ui.code.value); };
 ui.code.onkeydown = (e) => { if (e.key === "Enter") joinRoom(); };
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => {
+  resizeCanvas();
+  resetPadPosition();
+});
 resizeCanvas();
+resetPadPosition();
 window.addEventListener("keydown", (e) => { if (e.repeat) return; toggleKey(e, true); });
 window.addEventListener("keyup", (e) => toggleKey(e, false));
-ui.pad.addEventListener("pointerdown", onPadDown);
-ui.pad.addEventListener("pointermove", onPadMove);
-ui.pad.addEventListener("pointerup", onPadUp);
-ui.pad.addEventListener("pointercancel", onPadUp);
+ui.moveRail.addEventListener("pointerdown", onPadDown);
+ui.moveRail.addEventListener("pointermove", onPadMove);
+ui.moveRail.addEventListener("pointerup", onPadUp);
+ui.moveRail.addEventListener("pointercancel", onPadUp);
+ui.burstRail.addEventListener("pointerdown", onBurstRailDown);
 setInterval(hostTick, 1000 / 60);
 setInterval(() => syncInput(true), 50);
 requestAnimationFrame(loop);
@@ -135,15 +142,20 @@ function toggleKey(e, down) {
 }
 
 function onPadDown(e) {
-  ui.pad.setPointerCapture(e.pointerId);
+  if (!isCompactControls() && !isPadTarget(e.target)) return;
+  if (ui.moveRail.setPointerCapture) ui.moveRail.setPointerCapture(e.pointerId);
   state.joy.active = true;
   state.joy.pointerId = e.pointerId;
+  state.joy.anchorX = e.clientX;
+  state.joy.anchorY = e.clientY;
+  positionPad(e.clientX, e.clientY);
   updateJoy(e);
 }
 function onPadMove(e) { if (state.joy.active && state.joy.pointerId === e.pointerId) updateJoy(e); }
 function onPadUp(e) {
   if (e.type !== "pointercancel" && state.joy.pointerId !== e.pointerId) return;
-  state.joy = { active:false, pointerId:null, x:0, y:0 };
+  state.joy = { active:false, pointerId:null, x:0, y:0, anchorX:0, anchorY:0 };
+  resetPadPosition();
   ui.knob.style.transform = "translate(0px, 0px)";
   syncInput();
 }
@@ -161,6 +173,40 @@ function updateJoy(e) {
   ui.knob.style.transform = "translate(" + (state.joy.x * STICK_RADIUS) + "px, " + (state.joy.y * STICK_RADIUS) + "px)";
   syncInput();
 }
+function onBurstRailDown(e) {
+  if (!isCompactControls()) return;
+  if (e.target === ui.burstRail || e.target === ui.burst) {
+    e.preventDefault();
+    requestDash();
+  }
+}
+function isPadTarget(target) { return target === ui.pad || target === ui.knob; }
+function isCompactControls() {
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || ui.canvas.getBoundingClientRect().width || 0;
+  return viewportWidth <= 940;
+}
+function positionPad(clientX, clientY) {
+  if (!isCompactControls()) {
+    ui.pad.style.left = "";
+    ui.pad.style.top = "";
+    return;
+  }
+  const rect = ui.moveRail.getBoundingClientRect();
+  const half = (ui.pad.offsetWidth || 136) / 2;
+  const left = clamp(clientX - rect.left, half + 8, rect.width - half - 8);
+  const top = clamp(clientY - rect.top, half + 8, rect.height - half - 8);
+  ui.pad.style.left = left + "px";
+  ui.pad.style.top = top + "px";
+}
+function resetPadPosition() {
+  if (!isCompactControls()) {
+    ui.pad.style.left = "";
+    ui.pad.style.top = "";
+    return;
+  }
+  ui.pad.style.left = "72px";
+  ui.pad.style.top = "calc(100% - 72px)";
+}
 
 function requestDash() {
   const dir = desiredDashDirection();
@@ -173,6 +219,11 @@ function desiredDashDirection() {
   const input = desiredInput();
   if (input.x || input.y) return input;
   const me = currentLocalPlayer();
+  const rival = currentRivalPlayer();
+  if (me && rival) {
+    const targetDir = normalize(rival.x - me.x, rival.y - me.y);
+    if (targetDir.x || targetDir.y) return targetDir;
+  }
   if (me && (me.facingX || me.facingY)) return normalize(me.facingX, me.facingY);
   return { x:1, y:0 };
 }
@@ -280,7 +331,7 @@ function makeGame(code) {
     suddenDeath:false,
     baseRingRadius:BASE_ARENA_RADIUS,
     ringRadius:BASE_ARENA_RADIUS,
-    nextPowerIn:5,
+    nextPowerIn:4.2,
     powerup:null,
     effects:[],
     effectId:1,
@@ -342,7 +393,7 @@ function nextRound() {
   game.suddenDeath = false;
   game.baseRingRadius = BASE_ARENA_RADIUS * mode.arena;
   game.ringRadius = game.baseRingRadius;
-  game.nextPowerIn = 4.8 / mode.orb;
+  game.nextPowerIn = 3.4 / mode.orb;
   game.powerup = null;
   game.effects = [];
   game.message = mode.title + ". " + mode.hint;
@@ -692,15 +743,21 @@ function renderUi() {
   ui.home.hidden = inRoom;
   ui.room.hidden = !inRoom;
   ui.arena.hidden = !inRoom;
+  document.body.classList.toggle("in-room", inRoom && isCompactControls());
   ui.codeLabel.textContent = state.roomCode || "----";
   renderBurstButton();
-  if (!state.room) return;
+  if (!state.room) {
+    document.body.classList.remove("match-live");
+    return;
+  }
+  document.body.classList.toggle("match-live", isCompactControls() && state.room.players.length === 2);
   ui.status.textContent = state.room.message;
   ui.start.hidden = !(state.role === "host" && state.room.status === "lobby" && state.room.players.length === 2);
   ui.score.innerHTML = state.room.players.map((player) => {
     const label = player.id === state.role ? "You" : "Rival";
     return '<div class="' + (player.id === state.role ? "score-row you" : "score-row") + '"><div class="score-player"><span class="score-dot" style="background:' + player.color + '"></span><div><div class="score-name">' + label + '</div><div class="score-role">' + player.label + " · " + playerStatusText(player) + '</div></div></div><div class="score-points">' + player.score + '</div><div class="score-target">/ ' + state.room.winsToMatch + "</div></div>";
   }).join("");
+  ui.score.innerHTML = renderScoreboardMarkup(state.room.players);
   renderOverlay();
 }
 function renderBurstButton() {
@@ -717,6 +774,14 @@ function renderBurstButton() {
   ui.burstStatus.textContent = text;
   ui.burst.classList.toggle("ready", ready);
   ui.burst.classList.toggle("cooldown", !ready);
+  ui.burstRail.dataset.state = ready ? "ready" : "cooldown";
+}
+function renderScoreboardMarkup(players) {
+  return players.map((player) => {
+    const label = player.id === state.role ? "You" : "Rival";
+    const status = playerStatusLabel(player);
+    return '<div class="' + (player.id === state.role ? "score-row you" : "score-row") + '"><div class="score-player"><span class="score-dot" style="background:' + player.color + '"></span><div><div class="score-name">' + label + '</div><div class="score-role">' + player.label + " - " + status + '</div></div></div><div class="score-points">' + player.score + '</div><div class="score-target">/ ' + state.room.winsToMatch + "</div></div>";
+  }).join("");
 }
 function renderOverlay() {
   const room = state.room;
@@ -755,6 +820,26 @@ function renderOverlay() {
   ui.body.textContent = body;
   ui.rematch.hidden = !rematch;
   ui.overlay.classList.toggle("hidden", !show);
+}
+
+function renderUi() {
+  const inRoom = Boolean(state.room || state.roomCode);
+  const compactRoom = inRoom && isCompactControls();
+  ui.home.hidden = inRoom;
+  ui.room.hidden = !inRoom;
+  ui.arena.hidden = !inRoom;
+  document.body.classList.toggle("in-room", compactRoom);
+  ui.codeLabel.textContent = state.roomCode || "----";
+  renderBurstButton();
+  if (!state.room) {
+    document.body.classList.remove("match-live");
+    return;
+  }
+  document.body.classList.toggle("match-live", compactRoom && state.room.players.length === 2);
+  ui.status.textContent = state.room.message;
+  ui.start.hidden = !(state.role === "host" && state.room.status === "lobby" && state.room.players.length === 2);
+  ui.score.innerHTML = renderScoreboardMarkup(state.room.players);
+  renderOverlay();
 }
 
 function loop() {
@@ -962,6 +1047,10 @@ function drawEffect(effect, layer) {
   ctx.restore();
 }
 function drawHud(room, w, h) {
+  if (isCompactControls()) {
+    drawHudCompact(room, w, h);
+    return;
+  }
   pill(20, 18, 128, 34, "ROOM " + room.code, room.players[0].color, "left");
   const centerLabel = room.arena.sudden ? "SUDDEN DEATH" : "ROUND " + room.round + " · " + room.mode.title;
   pill(w / 2 - 118, 18, 236, 34, centerLabel, room.arena.sudden ? getVar("--ember") : getVar("--gold"), "center");
@@ -972,6 +1061,48 @@ function drawHud(room, w, h) {
   if (me && rival) {
     badge(20, h - 70, me.color, "YOU " + me.score, playerStatusText(me), 170);
     badge(w - 190, h - 70, rival.color, "RIVAL " + rival.score, playerStatusText(rival), 170);
+  }
+  if (room.powerup) {
+    ctx.fillStyle = "rgba(31,29,26,.7)";
+    ctx.font = "700 16px Trebuchet MS";
+    ctx.textAlign = "center";
+    ctx.fillText("CORE LIVE", w / 2, h - 26);
+  }
+}
+function drawHudCompact(room, w, h) {
+  pill(16, 16, 116, 32, "ROOM " + room.code, room.players[0].color, "left");
+  const centerLabel = room.arena.sudden ? "SUDDEN DEATH" : "ROUND " + room.round + " - " + room.mode.title;
+  pill(w / 2 - 104, 16, 208, 32, centerLabel, room.arena.sudden ? getVar("--ember") : getVar("--gold"), "center");
+  const timerLabel = room.status === "playing" ? formatTime(room.timeLeft) : "FT " + room.winsToMatch;
+  pill(w - 106, 16, 90, 32, timerLabel, room.arena.sudden ? getVar("--ember") : getVar("--blue"), "right");
+  const me = room.players.find((player) => player.id === state.role);
+  const rival = room.players.find((player) => player.id !== state.role);
+  if (me && rival) {
+    badge(16, 54, me.color, "YOU " + me.score, playerStatusLabel(me), 144);
+    badge(w - 160, 54, rival.color, "RIVAL " + rival.score, playerStatusLabel(rival), 144);
+  }
+  if (room.powerup) {
+    ctx.fillStyle = "rgba(31,29,26,.7)";
+    ctx.font = "700 13px Trebuchet MS";
+    ctx.textAlign = "center";
+    ctx.fillText("CORE LIVE", w / 2, 100);
+  }
+}
+function drawHud(room, w, h) {
+  if (isCompactControls()) {
+    drawHudCompact(room, w, h);
+    return;
+  }
+  pill(20, 18, 128, 34, "ROOM " + room.code, room.players[0].color, "left");
+  const centerLabel = room.arena.sudden ? "SUDDEN DEATH" : "ROUND " + room.round + " - " + room.mode.title;
+  pill(w / 2 - 118, 18, 236, 34, centerLabel, room.arena.sudden ? getVar("--ember") : getVar("--gold"), "center");
+  const timerLabel = room.status === "playing" ? formatTime(room.timeLeft) : "FT " + room.winsToMatch;
+  pill(w - 126, 18, 106, 34, timerLabel, room.arena.sudden ? getVar("--ember") : getVar("--blue"), "right");
+  const me = room.players.find((player) => player.id === state.role);
+  const rival = room.players.find((player) => player.id !== state.role);
+  if (me && rival) {
+    badge(20, h - 70, me.color, "YOU " + me.score, playerStatusLabel(me), 170);
+    badge(w - 190, h - 70, rival.color, "RIVAL " + rival.score, playerStatusLabel(rival), 170);
   }
   if (room.powerup) {
     ctx.fillStyle = "rgba(31,29,26,.7)";
@@ -1031,6 +1162,14 @@ function resizeCanvas() {
 }
 
 function currentLocalPlayer() { return state.room ? state.room.players.find((player) => player.id === state.role) : null; }
+function currentRivalPlayer() { return state.room ? state.room.players.find((player) => player.id !== state.role) : null; }
+function playerStatusLabel(player) {
+  const parts = [];
+  if (player.powerTimer > 0) parts.push("Overdrive " + player.powerTimer.toFixed(1) + "s");
+  if (player.stunTimer > 0.04) parts.push("Staggered");
+  parts.push(player.dashCd > 0 ? "Burst " + player.dashCd.toFixed(1) + "s" : "Burst ready");
+  return parts.join(" - ");
+}
 function playerStatusText(player) {
   const parts = [];
   if (player.powerTimer > 0) parts.push("Overdrive " + player.powerTimer.toFixed(1) + "s");
@@ -1038,6 +1177,7 @@ function playerStatusText(player) {
   parts.push(player.dashCd > 0 ? "Burst " + player.dashCd.toFixed(1) + "s" : "Burst ready");
   return parts.join(" · ");
 }
+function playerStatusText(player) { return playerStatusLabel(player); }
 function alphaColor(hex, alpha) {
   const color = hex.replace("#", "");
   if (color.length !== 6) return hex;
@@ -1095,5 +1235,6 @@ function resetSession() {
   ui.home.hidden = false;
   ui.room.hidden = true;
   ui.arena.hidden = true;
+  document.body.classList.remove("in-room", "match-live");
   renderBurstButton();
 }
